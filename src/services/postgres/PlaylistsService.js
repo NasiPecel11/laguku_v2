@@ -31,7 +31,7 @@ class PlaylistsService {
   async getPlaylists(owner) {
     const query = {
       text: `SELECT playlists.id, playlists.name, users.username FROM playlists 
-      LEFT JOIN users ON users.id = $1 
+      LEFT JOIN users ON users.id = playlists.owner 
       LEFT JOIN collaborations ON collaborations.user_id = $1
       WHERE owner = $1
       OR collaborations.playlist_id = playlists.id
@@ -46,17 +46,19 @@ class PlaylistsService {
   async getPlaylistById(id) {
     const query = {
       text: `SELECT playlists.id, playlists.name, users.username, JSON_AGG(JSON_BUILD_OBJECT('id', songs.id, 'title', songs.title, 'performer', songs.performer)) as songs FROM playlists 
-      LEFT JOIN users ON users.id = playlists.owner
-      LEFT JOIN playlist_songs ON playlist_songs.playlist_id = playlists.id
+      LEFT JOIN users ON users.id = playlists.owner 
+      LEFT JOIN collaborations ON collaborations.playlist_id = $1
+      LEFT JOIN playlist_songs ON playlist_songs.playlist_id = $1
       LEFT JOIN songs ON playlist_songs.song_id = songs.id
-      WHERE playlists.id = $1 OR playlist_songs.playlist_id = $1
+      WHERE playlists.id = $1
+      OR collaborations.playlist_id = playlists.id
+      OR playlist_songs.playlist_id = playlists.id
       GROUP BY playlists.id, users.username`,
       values: [id],
     };
 
     const result = await this._pool.query(query);
-
-    if (!result.rows[0].songs[0].id ) {
+    if (!result.rows[0].songs[0].id) {
       throw new NotFoundError("Playlist tidak ditemukan");
     }
     return result.rows[0];
@@ -75,7 +77,7 @@ class PlaylistsService {
     }
   }
 
-  async playlistIfExists(id, owner) {
+  async playlistIfExists(id) {
     const query = {
       text: `SELECT * FROM playlists
         WHERE playlists.id = $1 `,
@@ -86,18 +88,14 @@ class PlaylistsService {
     if (!result.rows.length) {
       throw new NotFoundError("Playlist tidak ditemukan");
     }
-
-    const playlist = result.rows[0];
-    if (playlist.owner !== owner) {
-      throw new AuthorizationError("Anda tidak berhak mengakses resource ini");
-    }
   }
 
   async verifyPlaylistOwner(id, owner) {
-    await this.playlistIfExists(id, owner);
+    await this.playlistIfExists(id);
+
     const query = {
       text: `SELECT playlists.* FROM playlists
-      INNER JOIN users ON playlists.owner = users.id  
+      LEFT JOIN users ON playlists.owner = users.id  
       LEFT JOIN collaborations ON collaborations.playlist_id = playlists.id
       WHERE (playlists.owner = $2 OR collaborations.user_id = $2) AND 
       playlists.id = $1`,

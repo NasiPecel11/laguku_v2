@@ -6,7 +6,6 @@ exports.up = (pgm) => {
     },
     name: {
       type: "VARCHAR(50)",
-      unique: true,
       notNull: true,
     },
     owner: {
@@ -14,7 +13,6 @@ exports.up = (pgm) => {
       notNull: true,
     },
   });
-  // pgm.addConstraint("playlists", "unique_owner", "UNIQUE(owner)");
 
   pgm.addConstraint(
     "playlists",

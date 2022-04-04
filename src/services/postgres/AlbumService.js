@@ -31,7 +31,7 @@ class AlbumService {
   async getAlbumById(id) {
     const query = {
       text: `SELECT albums.*, JSON_AGG(JSON_BUILD_OBJECT('id', songs.id, 'title', songs.title, 'performer', songs.performer)) as songs FROM albums
-      INNER JOIN songs ON songs.album_id = albums.id
+      LEFT JOIN songs ON songs.album_id = albums.id
       WHERE albums.id = $1 
       GROUP BY albums.id`,
       values: [id],
